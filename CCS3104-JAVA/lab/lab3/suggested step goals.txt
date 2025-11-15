@@ -1,0 +1,9 @@
+Steps
+-----
+
+1. Display a circle with radius 10 pixels.
+2. Display the circle with random color.
+3. Display the circle with random color and location.
+4. Show circle in another location with random color when clicked.
+5. Count to 20 circles.
+6. Do and show timing after removing circle.
