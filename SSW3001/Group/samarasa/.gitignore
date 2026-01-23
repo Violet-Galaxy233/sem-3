@@ -1,0 +1,220 @@
+# Dependencies
+node_modules/
+*/node_modules/
+**/node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.env
+.venv
+
+# Go
+vendor/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Build outputs
+dist/
+build/
+out/
+coverage/
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+
+# Gatsby files
+.cache/
+public
+
+# Storybook build
+storybook-static
+
+# Temporary folders
+tmp/
+temp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Terraform
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+.terraform.lock.hcl
+
+# Kubernetes
+kubeconfig
+
+# Database
+*.sqlite
+*.sqlite3
+
+# Security
+*.key
+*.pem
+*.crt
+*.cert
+
+# Backup files
+*.bak
+*.backup
+
+# Cache
+.cache/
+.cache_*
+
+# Lock files (except for root)
+package-lock.json
+!package-lock.json
+
+# pnpm
+.pnpm-debug.log*
+
+# TurboRepo
+.turbo/
+
+# Vite
+.vite/
+
+# ESLint
+.eslintcache
+
+# Stylelint
+.stylelintcache
+
+# SvelteKit
+.svelte-kit/
+
+# Firebase
+firebase-debug.log
+firebase-debug.*.log*
+
+# Firebase hosting
+*.firebase/
+
+# Amplify
+amplify/
+.amplifyrc
+aws-exports.js
+awsconfiguration.json
+
+# Cypress
+cypress/videos/
+cypress/screenshots/
+
+# Playwright
+playwright-report/
+test-results/
+
+# Jest
+.jest-cache/
+
+# Rollup
+.rollup.cache/
+
+# Vercel
+.vercel/
+
+# Netlify
+.netlify/
+
+# AWS
+.aws/
+
+# Azure
+azure-functions/
+
+# Google Cloud
+.gcloud/
+
+# Kubernetes secrets
+secrets/
+*.kubeconfig
+
+# Certificates
+certs/
+*.pfx
+*.p12
+
+# Custom
+TODO.md
+*.old
+*.tmp
+*.temp

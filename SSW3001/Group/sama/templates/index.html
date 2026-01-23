@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SamaRasa - AI Elderly Care Assistant</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1 id="appTitle">SamaRasa</h1>
+                <p id="greeting" style="font-size: 24px; color: #64748b;"></p>
+            </div>
+            <div class="language-toggle">
+                <button class="btn btn-outline active" id="langEN" onclick="switchLanguage('en')">English</button>
+                <button class="btn btn-outline" id="langBM" onclick="switchLanguage('bm')">Bahasa</button>
+            </div>
+        </div>
+
+        <!-- Main Navigation Grid -->
+        <div class="card">
+            <h2 id="menuTitle">Main Menu</h2>
+            <div class="grid grid-3">
+                <button class="icon-btn" onclick="showSection('chat')">
+                    <span class="icon">💬</span>
+                    <span class="label" id="menuChat">Chat Companion</span>
+                </button>
+                <button class="icon-btn" onclick="showSection('medication')">
+                    <span class="icon">💊</span>
+                    <span class="label" id="menuMed">Medications</span>
+                </button>
+                <button class="icon-btn" onclick="showSection('diary')">
+                    <span class="icon">📔</span>
+                    <span class="label" id="menuDiary">Health Diary</span>
+                </button>
+                <button class="icon-btn" onclick="showSection('fall')">
+                    <span class="icon">🚶</span>
+                    <span class="label" id="menuFall">Fall Risk</span>
+                </button>
+                <button class="icon-btn" onclick="showSection('dashboard')">
+                    <span class="icon">👨‍👩‍👧</span>
+                    <span class="label" id="menuFamily">Family</span>
+                </button>
+                <button class="icon-btn" onclick="showSection('home')">
+                    <span class="icon">🏠</span>
+                    <span class="label" id="menuHome">Home</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Companion Section -->
+        <div id="chatSection" class="section hidden">
+            <div class="card">
+                <h2 id="chatTitle">Chat with SamaRasa</h2>
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages"></div>
+                    <div class="chat-input">
+                        <input type="text" id="chatInput" placeholder="Type your message..." />
+                        <button class="btn btn-primary" onclick="sendMessage()" id="btnSend">Send</button>
+                        <button class="btn btn-secondary" onclick="startVoiceInput()" id="btnVoice">🎤 Voice</button>
+                    </div>
+                    <div id="voiceIndicator" class="voice-indicator hidden" style="margin-top: 12px;">
+                        <span>🎤</span>
+                        <span id="voiceText">Listening...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Medication Section -->
+        <div id="medicationSection" class="section hidden">
+            <div class="card">
+                <h2 id="medTitle">My Medications</h2>
+                <div id="medicationList"></div>
+                <button class="btn btn-outline" onclick="checkReminders()" id="btnCheckReminders">Check Reminders</button>
+            </div>
+        </div>
+
+        <!-- Health Diary Section -->
+        <div id="diarySection" class="section hidden">
+            <div class="card">
+                <h2 id="diaryTitle">Health Diary - Today</h2>
+                <form onsubmit="submitDiary(event)">
+                    <div class="form-group">
+                        <label id="labelMood">How are you feeling today?</label>
+                        <div class="mood-selector" id="moodSelector">
+                            <div class="mood-option" data-mood="happy" onclick="selectMood('happy')">
+                                <span class="emoji">😊</span>
+                                <span id="moodHappy">Happy</span>
+                            </div>
+                            <div class="mood-option" data-mood="neutral" onclick="selectMood('neutral')">
+                                <span class="emoji">😐</span>
+                                <span id="moodNeutral">Neutral</span>
+                            </div>
+                            <div class="mood-option" data-mood="sad" onclick="selectMood('sad')">
+                                <span class="emoji">😢</span>
+                                <span id="moodSad">Sad</span>
+                            </div>
+                            <div class="mood-option" data-mood="tired" onclick="selectMood('tired')">
+                                <span class="emoji">😴</span>
+                                <span id="moodTired">Tired</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sleepHours" id="labelSleep">Hours of sleep last night:</label>
+                        <input type="number" id="sleepHours" min="0" max="24" step="0.5" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="exerciseMinutes" id="labelExercise">Exercise minutes today:</label>
+                        <input type="number" id="exerciseMinutes" min="0" max="480" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="diaryNotes" id="labelNotes">Additional notes (optional):</label>
+                        <textarea id="diaryNotes"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-success" id="btnSaveDiary">Save Entry</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2 id="weeklySummaryTitle">Weekly Summary</h2>
+                <div id="weeklySummary"></div>
+            </div>
+        </div>
+
+        <!-- Fall Risk Assessment Section -->
+        <div id="fallSection" class="section hidden">
+            <div class="card">
+                <h2 id="fallTitle">Fall Risk Assessment</h2>
+                <p id="fallDesc">Answer these questions to assess your fall risk:</p>
+
+                <div id="fallQuestions"></div>
+
+                <button class="btn btn-primary" onclick="submitFallAssessment()" id="btnSubmitFall">Submit Assessment</button>
+            </div>
+
+            <div id="fallResults" class="card hidden">
+                <h2 id="fallResultsTitle">Assessment Results</h2>
+                <div id="fallResultsContent"></div>
+            </div>
+        </div>
+
+        <!-- Emergency SOS Button (Always visible) -->
+        <button class="btn btn-danger sos-button" onclick="triggerSOS()" id="sosButton">
+            🆘 EMERGENCY
+        </button>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="/static/js/voice-services.js"></script>
+    <script src="/static/js/translations.js"></script>
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Dashboard - SamaRasa</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>Family Dashboard</h1>
+                <p id="elderlyName" style="font-size: 22px; color: #64748b;"></p>
+            </div>
+            <div>
+                <button class="btn btn-outline" onclick="refreshDashboard()">🔄 Refresh</button>
+                <a href="/" class="btn btn-secondary">← Back to App</a>
+            </div>
+        </div>
+
+        <!-- Alert Section -->
+        <div id="alertsSection" class="card hidden">
+            <h2>⚠️ Active Alerts</h2>
+            <div id="alertsList"></div>
+        </div>
+
+        <!-- Statistics Grid -->
+        <div class="grid grid-3">
+            <div class="stat-card">
+                <div class="stat-icon">💊</div>
+                <div class="stat-value" id="statMedications">0</div>
+                <div class="stat-label">Active Medications</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📔</div>
+                <div class="stat-value" id="statDiary">0</div>
+                <div class="stat-label">Diary Entries (7 days)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🚶</div>
+                <div class="stat-value" id="statFallRisk">-</div>
+                <div class="stat-label">Fall Risk Level</div>
+            </div>
+        </div>
+
+        <!-- Two Column Layout -->
+        <div class="grid grid-2">
+            <!-- Left Column -->
+            <div>
+                <!-- Medications -->
+                <div class="card">
+                    <h2>💊 Medication Schedule</h2>
+                    <div id="dashboardMedications"></div>
+                </div>
+
+                <!-- Fall Risk -->
+                <div class="card">
+                    <h2>🚶 Fall Risk Assessment</h2>
+                    <div id="dashboardFallRisk"></div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div>
+                <!-- Health Diary -->
+                <div class="card">
+                    <h2>📔 Health Diary (Last 7 Days)</h2>
+                    <div id="dashboardDiary"></div>
+                </div>
+
+                <!-- Recent Chats -->
+                <div class="card">
+                    <h2>💬 Recent Conversations</h2>
+                    <div id="dashboardChats"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Caregiver Information -->
+        <div class="card">
+            <h2>👨‍👩‍👧 Registered Caregivers</h2>
+            <div id="caregiversList"></div>
+        </div>
+    </div>
+
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*.*.*'
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: 123456789012.dkr.ecr.us-east-1.amazonaws.com
+  KUBE_NAMESPACE: smamrasa
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name smamrasa-prod-cluster
+
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install smamrasa ./infrastructure/helm/smamrasa \
+            --namespace ${{ env.KUBE_NAMESPACE }} \
+            --create-namespace \
+            --set image.tag=${{ github.sha }} \
+            --set image.repository=${{ env.ECR_REGISTRY }} \
+            --set ingress.host=api.smamrasa.com \
+            --set persistence.enabled=true \
+            --set resources.limits.cpu=1000m \
+            --set resources.limits.memory=1Gi \
+            --wait --timeout=10m
+
+      - name: Run database migrations
+        run: |
+          kubectl exec -n ${{ env.KUBE_NAMESPACE }} deployment/smamrasa-postgres -- \
+            psql -U smamrasa_admin -d smamrasa -f /docker-entrypoint-initdb.d/001-init.sql
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -n ${{ env.KUBE_NAMESPACE }}
+          kubectl get services -n ${{ env.KUBE_NAMESPACE }}
+          kubectl get ingress -n ${{ env.KUBE_NAMESPACE }}
+
+      - name: Run smoke tests
+        run: |
+          sleep 60
+          curl -f https://api.smamrasa.com/auth/health || exit 1
+          curl -f https://api.smamrasa.com/auth/health | jq . || exit 1
+
+      - name: Notify Slack
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+
+  rollback:
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: failure()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name smamrasa-prod-cluster
+
+      - name: Rollback deployment
+        run: |
+          helm rollback smamrasa -n ${{ env.KUBE_NAMESPACE }}
+          kubectl rollout status deployment/smamrasa-auth -n ${{ env.KUBE_NAMESPACE }} --timeout=5m
+
+      - name: Notify Slack of rollback
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#alerts'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          text: 'Production deployment failed - rolled back to previous version'

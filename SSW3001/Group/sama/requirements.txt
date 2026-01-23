@@ -1,0 +1,25 @@
+# Core Framework
+Flask==3.0.0
+flask-cors==4.0.0
+
+# Environment Variables
+python-dotenv==1.0.0
+
+# OpenAI API
+openai==1.54.0
+
+# Twilio API (SMS/Voice)
+twilio==9.3.7
+
+# SendGrid API (Email)
+sendgrid==6.11.0
+
+# Google Cloud APIs
+google-cloud-translate==3.16.0
+google-cloud-speech==2.27.0
+
+# HTTP Requests
+requests==2.31.0
+
+# Timezone support
+pytz==2024.1

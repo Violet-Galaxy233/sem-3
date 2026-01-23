@@ -1,0 +1,461 @@
+version: '3.8'
+
+services:
+  # ==================== DATABASES ====================
+  postgres:
+    image: postgres:15-alpine
+    container_name: smamrasa-postgres
+    environment:
+      POSTGRES_DB: smamrasa
+      POSTGRES_USER: smamrasa_admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-smamrasa_password_2024}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d
+    networks:
+      - smamrasa-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smamrasa_admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: smamrasa-timescaledb
+    environment:
+      POSTGRES_DB: smamrasa_iot
+      POSTGRES_USER: iot_admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-smamrasa_password_2024}
+    ports:
+      - "5433:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      - ./database/migrations-timescale:/docker-entrypoint-initdb.d
+    networks:
+      - smamrasa-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iot_admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: smamrasa-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_password_2024}
+    volumes:
+      - redis_data:/data
+    networks:
+      - smamrasa-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ==================== MESSAGE QUEUE ====================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: smamrasa-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - smamrasa-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: smamrasa-kafka
+    depends_on:
+      zookeeper:
+        condition: service_started
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    networks:
+      - smamrasa-network
+
+  # ==================== SEARCH & LOGGING ====================
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: smamrasa-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - smamrasa-network
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: smamrasa-kibana
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    networks:
+      - smamrasa-network
+
+  # ==================== MONITORING ====================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: smamrasa-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - smamrasa-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: smamrasa-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - smamrasa-network
+
+  # ==================== API GATEWAY ====================
+  kong:
+    image: kong:latest
+    container_name: smamrasa-kong
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: postgres
+      KONG_PG_USER: smamrasa_admin
+      KONG_PG_PASSWORD: ${DB_PASSWORD:-smamrasa_password_2024}
+      KONG_CASSANDRA_CONTACT_POINTS: postgres
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    networks:
+      - smamrasa-network
+
+  # ==================== BACKEND SERVICES ====================
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: smamrasa-auth
+    ports:
+      - "4001:4001"
+    environment:
+      - NODE_ENV=development
+      - PORT=4001
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=smamrasa
+      - DB_USER=smamrasa_admin
+      - DB_PASSWORD=${DB_PASSWORD:-smamrasa_password_2024}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_password_2024}
+      - JWT_SECRET=${JWT_SECRET:-your_jwt_secret_key_here}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - smamrasa-network
+    volumes:
+      - ./services/auth-service:/app
+      - /app/node_modules
+
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    container_name: smamrasa-user
+    ports:
+      - "4002:4002"
+    environment:
+      - NODE_ENV=development
+      - PORT=4002
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=smamrasa
+      - DB_USER=smamrasa_admin
+      - DB_PASSWORD=${DB_PASSWORD:-smamrasa_password_2024}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - smamrasa-network
+    volumes:
+      - ./services/user-service:/app
+      - /app/node_modules
+
+  appointment-service:
+    build:
+      context: ./services/appointment-service
+      dockerfile: Dockerfile
+    container_name: smamrasa-appointment
+    ports:
+      - "5001:5001"
+    environment:
+      - ENVIRONMENT=development
+      - PORT=5001
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=smamrasa
+      - DB_USER=smamrasa_admin
+      - DB_PASSWORD=${DB_PASSWORD:-smamrasa_password_2024}
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - smamrasa-network
+    volumes:
+      - ./services/appointment-service:/app
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile
+    container_name: smamrasa-notification
+    ports:
+      - "4003:4003"
+    environment:
+      - NODE_ENV=development
+      - PORT=4003
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=smamrasa
+      - DB_USER=smamrasa_admin
+      - DB_PASSWORD=${DB_PASSWORD:-smamrasa_password_2024}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - TWILIO_SID=${TWILIO_SID}
+      - TWILIO_TOKEN=${TWILIO_TOKEN}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - smamrasa-network
+    volumes:
+      - ./services/notification-service:/app
+      - /app/node_modules
+
+  video-service:
+    build:
+      context: ./services/video-service
+      dockerfile: Dockerfile
+    container_name: smamrasa-video
+    ports:
+      - "4004:4004"
+    environment:
+      - NODE_ENV=development
+      - PORT=4004
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=smamrasa
+      - DB_USER=smamrasa_admin
+      - DB_PASSWORD=${DB_PASSWORD:-smamrasa_password_2024}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - smamrasa-network
+    volumes:
+      - ./services/video-service:/app
+      - /app/node_modules
+
+  iot-service:
+    build:
+      context: ./services/iot-service
+      dockerfile: Dockerfile
+    container_name: smamrasa-iot
+    ports:
+      - "5002:5002"
+      - "1883:1883"
+    environment:
+      - ENVIRONMENT=development
+      - PORT=5002
+      - DB_HOST=timescaledb
+      - DB_PORT=5432
+      - DB_NAME=smamrasa_iot
+      - DB_USER=iot_admin
+      - DB_PASSWORD=${DB_PASSWORD:-smamrasa_password_2024}
+      - MQTT_PORT=1883
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    networks:
+      - smamrasa-network
+    volumes:
+      - ./services/iot-service:/app
+
+  prescription-service:
+    build:
+      context: ./services/prescription-service
+      dockerfile: Dockerfile
+    container_name: smamrasa-prescription
+    ports:
+      - "4005:4005"
+    environment:
+      - NODE_ENV=development
+      - PORT=4005
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=smamrasa
+      - DB_USER=smamrasa_admin
+      - DB_PASSWORD=${DB_PASSWORD:-smamrasa_password_2024}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - smamrasa-network
+    volumes:
+      - ./services/prescription-service:/app
+      - /app/node_modules
+
+  triage-service:
+    build:
+      context: ./services/triage-service
+      dockerfile: Dockerfile
+    container_name: smamrasa-triage
+    ports:
+      - "5003:5003"
+    environment:
+      - ENVIRONMENT=development
+      - PORT=5003
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=smamrasa
+      - DB_USER=smamrasa_admin
+      - DB_PASSWORD=${DB_PASSWORD:-smamrasa_password_2024}
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - smamrasa-network
+    volumes:
+      - ./services/triage-service:/app
+
+  # ==================== FRONTEND ====================
+  patient-portal:
+    build:
+      context: ./web/patient-portal
+      dockerfile: Dockerfile
+    container_name: smamrasa-patient-portal
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - REACT_APP_API_URL=http://localhost:8000
+    depends_on:
+      - kong
+    networks:
+      - smamrasa-network
+    volumes:
+      - ./web/patient-portal:/app
+      - /app/node_modules
+
+  doctor-portal:
+    build:
+      context: ./web/doctor-portal
+      dockerfile: Dockerfile
+    container_name: smamrasa-doctor-portal
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - REACT_APP_API_URL=http://localhost:8000
+    depends_on:
+      - kong
+    networks:
+      - smamrasa-network
+    volumes:
+      - ./web/doctor-portal:/app
+      - /app/node_modules
+
+  admin-portal:
+    build:
+      context: ./web/admin-portal
+      dockerfile: Dockerfile
+    container_name: smamrasa-admin-portal
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=development
+      - PORT=3003
+      - REACT_APP_API_URL=http://localhost:8000
+    depends_on:
+      - kong
+    networks:
+      - smamrasa-network
+    volumes:
+      - ./web/admin-portal:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
+  timescale_data:
+  redis_data:
+  elasticsearch_data:
+  grafana_data:
+
+networks:
+  smamrasa-network:
+    driver: bridge
